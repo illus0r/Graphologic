@@ -80,7 +80,7 @@ class ZWizardPage(QtGui.QWizardPage):
 			termLabel = QtGui.QLabel(term[0])
 			verticalLayout.addWidget(termLabel)
 			verticalLayout.addStretch()
-		verticalLayout.removeItem(verticalLayout.itemAt(verticalLayout.count()-1))
+		verticalLayout.removeWidget(verticalLayout.itemAt(verticalLayout.count()-1))
 		self.slider = ZSlider(QtCore.Qt.Vertical)
 		graphicsView = QtGui.QGraphicsView()
 		horizontalLayout.addLayout(verticalLayout)
