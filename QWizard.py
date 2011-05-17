@@ -46,6 +46,7 @@ class ZRule():
 				[varId,termId] = varOrOperator.split("-")
 				for linguisticVariable in linguisticVariableList:
 					if linguisticVariable.id.upper() == varId.upper():
+                        # TODO защита от термов, выходящих за границы массива
 						stack.append(float(linguisticVariable.degreesOfMembership[0][int(termId)-1]))
 						break
 			#print stack
@@ -54,6 +55,9 @@ class ZRule():
 		else:
 			result=0.0
 		return [result, self.conclusions]
+
+
+
 
 class ZSlider(QtGui.QSlider):
 	def __init__(self,parent=None):
