@@ -13,25 +13,40 @@ import math
 #		image = ""
 
 class ZLinguisticVariable():
+	""" Класс лингвистической переменной
+	Описывает её имя, идентификатор (вида b2, s18 и т.п.),
+	"""
 	def __init__(self):
-		self.name = ""
-		self.id = ""
-		self.description = ""
-		self.terms = []
+		self.name = ""	# человеческое название
+		self.id = ""	# идентификатор вида b2, s18 и т.п.
+		self.description = ""	# человеческое описание переменной
+		self.terms = []	# термы переменной
+		# степени принадлежности входного значения к термам
 		self.degreesOfMembership = []
 
 class ZRule():
+	""" Класс правила вывода
+	"""
 	def __init__(self,source):
 		self.source = source[:-1]
 		self.conditions = []
 		self.conclusions = []
 	def calculate(self,linguisticVariableList):
+		""" Определяет степень выполнения правила
+		linguisticVariableList - список лингвистических 
+		переменных, содержащий степени принадлежности 
+		входных переменных термам
+
+		возвращает список из двух элементов:
+		result - значение левой стороны правила
+		self.conclusions - список заключений, на которые влияет данное
+		правило
+		"""
 		[leftPart, rightPart] = self.source.split(" => ")
 		self.conditions = leftPart.split(" ")
 		self.conclusions = rightPart.split(";")
-		#print self.conditions
-		#print type(self.conditions)
-		# Вычисление значения левой части (обратная польская запись)
+		# Вычисление значения левой части 
+		# (обратная польская запись, стандартный алгоритм)
 		stack = []
 		for varOrOperator in self.conditions:
 			if varOrOperator == "OR":
@@ -46,66 +61,96 @@ class ZRule():
 				[varId,termId] = varOrOperator.split("-")
 				for linguisticVariable in linguisticVariableList:
 					if linguisticVariable.id.upper() == varId.upper():
-                        # TODO защита от термов, выходящих за границы массива
-						stack.append(float(linguisticVariable.degreesOfMembership[0][int(termId)-1]))
+                        # TODO защита от термов, выходящих за границы 
+						# массива
+						index = int(termId)-1
+						value = linguisticVariable.degreesOfMembership[0][index]
+						stack.append(float(value))
 						break
-			#print stack
+		# защита от пустого списка
 		if stack:
 			result = stack.pop()
 		else:
 			result=0.0
 		return [result, self.conclusions]
 
-
-
-
 class ZSlider(QtGui.QSlider):
+	""" Класс слайдера выбора степеней принадлежности
+	"""
 	def __init__(self,parent=None):
 		QtGui.QSlider.__init__(self,parent)
-		self.setValue(0)
+		self.setValue(50)
 
 class ZWizardPage(QtGui.QWizardPage):
+	""" Страница мастера
+	При инициализации принимает объект ZLinguisticVariable
+	использует его для заполнения формы
+	"""
 	def __init__(self,linguisticVariable,parent=None):
 		QtGui.QWizardPage.__init__(self,parent)
+		# определение заголовка
 		self.setTitle(linguisticVariable.name)
-
 		groupBox = QtGui.QGroupBox(linguisticVariable.name)
+		# текстовое поле с описанием переменной
 		label = QtGui.QLabel(linguisticVariable.description)
 		label.setWordWrap(True)
-		horizontalLayout = QtGui.QHBoxLayout()
 		# вертикальный лейаут для термов
 		verticalLayout = QtGui.QVBoxLayout()
 		# Наполнение лейаута названиями термов
 		for term in linguisticVariable.terms:
 			termLabel = QtGui.QLabel(term[0])
+			termLabel.setWordWrap(True)
 			verticalLayout.addWidget(termLabel)
+			# перемежаем надписи разделителями
 			verticalLayout.addStretch()
-		verticalLayout.removeItem(verticalLayout.itemAt(verticalLayout.count()-1))
+		# удалим нижний разделитель
+		verticalLayoutLastItem = verticalLayout.itemAt(verticalLayout.count()-1)
+		verticalLayout.removeItem(verticalLayoutLastItem)
+		# слайдер
 		self.slider = ZSlider(QtCore.Qt.Vertical)
+		# пространство для отображения примеров почерка
 		graphicsView = QtGui.QGraphicsView()
+		# заполнение лейаутов
+		horizontalLayout = QtGui.QHBoxLayout()
 		horizontalLayout.addLayout(verticalLayout)
 		horizontalLayout.addWidget(self.slider)
 		horizontalLayout.addWidget(graphicsView)
-
-#		layout = QtGui.QVBoxLayout()
-#		layout.addWidget(label)
-#		layout.addWidget(self.slider)
 		self.setLayout(horizontalLayout)
 
 class ZWizard(QtGui.QWizard):
+	""" Класс мастера графанализа
+
+	На основании входных списков переменных показывает пользователю
+	ряд диалоговых форм для сбора информации о почерке.
+	На основании списка правил анализирует их и представляет отчёт
+	"""
 	def __init__(self, parent=None):
 		QtGui.QWizard.__init__(self,parent)
 		self.linguisticVariableList = []
 		self.readLinguisticVariables()
-#		self.setWizardStyle(QtGui.QWizard.ModernStyle)
+		self.setWizardStyle(QtGui.QWizard.ModernStyle)
 		for linguisticVariable in self.linguisticVariableList:
 			self.addPage(ZWizardPage(linguisticVariable))
 		self.setWindowTitle(u"Графологический анализ")
+		# TODO русификация кнопок
 
 	def accept(self):
+		""" Переопределение функции завершения работы мастера
+		Выполняет анализ характеристик и выводи отчёт
+		"""
 		self.saveDegreesOfMembership()
-		conclusionNames = ["C-","C+","9-","9+","3-","3+","G-","G+","M-","M+","F-","F+"]
-		resultList = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+		conclusionNames = [	"C-","C+",
+							"9-","9+",
+							"3-","3+",
+							"G-","G+",
+							"M-","M+",
+							"F-","F+"]
+		resultList = [ 		0.0, 0.0, 
+							0.0, 0.0, 
+							0.0, 0.0, 
+							0.0, 0.0, 
+							0.0, 0.0, 
+							0.0, 0.0]
 		ruleList = self.readRules()
 		for rule in ruleList:
 			[value, conclusionList] = rule.calculate(self.linguisticVariableList)
@@ -120,6 +165,9 @@ class ZWizard(QtGui.QWizard):
 		QtGui.QDialog.accept(self)
 
 	def readRules(self):
+		""" Считывает из файла правила вывода
+		и возвращяет заполненный ими список ruleList
+		"""
 		ruleFile=open("rules.txt","r")
 		ruleList = []
 		for line in ruleFile:
@@ -130,19 +178,25 @@ class ZWizard(QtGui.QWizard):
 		return ruleList
 
 	def readLinguisticVariables(self):
+		""" Считывает из файла список лингвистических переменных
+		сохраняет его в self.linguisticVariableList
+		"""
 		# Read variable file
 		linguisticVariableFile = open("lv.txt","r")
 		# TODO check file format
 		for line in linguisticVariableFile:
 			line = unicode(line, "UTF-8")
+			# обрабатываются только строки, начинающиеся с цифры
 			if(line[0].isdigit()):
 				linguisticVariableTemp = line.split('	')
 				termList = []
+				# термы начинаются с этого места:
 				for term in linguisticVariableTemp[4:]:
 					term = term[1:-1]
 					term = term.split(";")
+					# наполним ими список термов
 					termList.append(term)
-				#linguisticVariable = linguisticVariable[:3]+termList
+				# запишем полученную информацию в объект класса ZLinguisticVariable
 				linguisticVariable = ZLinguisticVariable()
 				linguisticVariable.name = linguisticVariableTemp[1]
 				linguisticVariable.id = linguisticVariableTemp[2]
@@ -152,30 +206,52 @@ class ZWizard(QtGui.QWizard):
 		linguisticVariableFile.close()
 
 	def saveDegreesOfMembership(self):
+		""" Сохраняет степени принадлежности в список класса 
+		self.linguisticVariableList
+		"""
 		for id in self.pageIds():
 			value = self.page(id).slider.value()
-			modalValues = [term[1] for term in self.linguisticVariableList[id].terms]
+			modalValues = [term[1] 
+					for term in self.linguisticVariableList[id].terms]
 			degreesOfMembership = self.findDegreesOfMembership(value, modalValues)
 			self.linguisticVariableList[id].degreesOfMembership.append(degreesOfMembership)
 
 	def findDegreesOfMembership(self, x, modalValues):
+		""" Находит степени принадлежности x к термам, заданным
+		модальными значениями modalValues.
+
+		Возвращает список степеней принадлежности для каждого терма
+		"""
+		# преобразуем элементы списка в float
 		modalValues = [float(modalValue) for modalValue in modalValues]
+		# создадим массив степеней принадлежности
+		# элементов в нём должно быть столько же, сколько в modalValues
 		output = [0.0 for item in modalValues]
+		# флаг нахождения интервала
 		isFound = False
+		# ищем интервал слева и между модальных значений
 		for modalValue in modalValues:
 			if x < modalValue:
 				isFound = True
 				rightIndex = modalValues.index(modalValue)
 				break
+		# если нашли, то переменная либо..
 		if isFound:
+			# ..либо левее левого модального значения..
 			if rightIndex == 0:
 				output[0]=1.0
+			# .. либо лежит между ними
 			else:
+				# в этом случае найдём степени принадлежности её к двум
+				# термам, модальные значения которых окружают переменную
 				leftIndex = rightIndex - 1
 				modalValueRight = modalValues[rightIndex]
 				modalValueLeft = modalValues[leftIndex]
-				output[leftIndex] = 0.5 - 0.5*math.cos((x-modalValueRight)*math.pi/(modalValueRight-modalValueLeft))
-				output[rightIndex] = 0.5 + 0.5*math.cos((x-modalValueRight)*math.pi/(modalValueRight-modalValueLeft))
+				cosValue = 0.5*math.cos((x-modalValueRight)*math.pi/
+						(modalValueRight-modalValueLeft))
+				output[leftIndex] = 0.5 - cosValue
+				output[rightIndex] = 0.5 + cosValue
+		# если не нашли, что переменная лежит правее модальных значений
 		else:
 			output[len(output)-1] = 1.0
 		# print output
