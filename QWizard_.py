@@ -79,17 +79,17 @@ class ZSlider(QtGui.QSlider):
 	"""
 	def __init__(self,parent=None):
 		QtGui.QSlider.__init__(self,parent)
-		self.setValue(50)
+		self.setValue(0)
 
 class ZWizardPage(QtGui.QWizardPage):
 	""" Страница мастера
 	При инициализации принимает объект ZLinguisticVariable
 	использует его для заполнения формы
 	"""
-	def __init__(self,linguisticVariable,parent=None):
+	def __init__(self,linguisticVariable,currentPage,totalPages,parent=None):
 		QtGui.QWizardPage.__init__(self,parent)
 		# определение заголовка
-		self.setTitle(linguisticVariable.name)
+		self.setTitle(linguisticVariable.name + u"\n(страница "+str(currentPage)+u" из "+str(totalPages)+u")")
 		groupBox = QtGui.QGroupBox(linguisticVariable.name)
 		# текстовое поле с описанием переменной
 		label = QtGui.QLabel(linguisticVariable.description)
@@ -143,8 +143,9 @@ class ZWizard(QtGui.QWizard):
 		self.linguisticVariableList = []
 		self.readLinguisticVariables()
 		self.setWizardStyle(QtGui.QWizard.ModernStyle)
-		for linguisticVariable in self.linguisticVariableList:
-			self.addPage(ZWizardPage(linguisticVariable))
+		for linguisticVariableIndex in range(len(self.linguisticVariableList)):
+			self.addPage(ZWizardPage(self.linguisticVariableList[linguisticVariableIndex],
+				linguisticVariableIndex,len(self.linguisticVariableList)))
 		self.lastPageId = self.addPage(ZReportWizardPage())
 		self.setWindowTitle(u"Графологический анализ")
 		self.connect(self, QtCore.SIGNAL("currentIdChanged(int)"), self.currentIdChanged)
@@ -182,7 +183,35 @@ class ZWizard(QtGui.QWizard):
 					resultList[index] =  newValue
 			print conclusionNames
 			print resultList
-			self.page(self.lastPageId).label.setText(str(resultList))
+			humanReport = self.prepareHumanReport(resultList)
+			self.page(self.lastPageId).label.setText(humanReport)
+
+	def prepareHumanReport(self,resultList):
+		conclusionHumanNames = [
+				u"Эмоциональная неустойчивость",	u"Эмоциональная устойчивость",
+				u"Замкнутость",	u"Общительность",
+				u"Скромность",	u"Демонстративность",
+				u"Несобранность",	u"Педантичность",
+				u"Практичность ",	u"Мечтательность",
+				u"Озабоченность",	u"Беспечность"]
+		report = u""
+		for index in range(0, len(resultList), 2):
+			valuePlus = resultList[index+1]
+			valueMinus = resultList[index]
+			if valuePlus+valueMinus >= 2:
+				superiority = (valuePlus-valueMinus)/(valuePlus+valueMinus)
+				if superiority >= 0.333:
+					report += conclusionHumanNames[index+1]
+					report += "\n"
+				elif superiority <= -0.333:
+					report += conclusionHumanNames[index]
+					report += "\n"
+		if report == u"":
+			report = u"Психологические особенности не выявлены"
+		else:
+			report = u"В результате графологического анализа были выявлены следущие психологические особенности:\n\n" + report
+		return report
+
 	
 	def readRules(self):
 		""" Считывает из файла правила вывода
