@@ -117,6 +117,16 @@ class ZWizardPage(QtGui.QWizardPage):
 		horizontalLayout.addWidget(graphicsView)
 		self.setLayout(horizontalLayout)
 
+class ZReportWizardPage(QtGui.QWizardPage):
+	def __init__(self,parent=None):
+		QtGui.QWizardPage.__init__(self,parent)
+		self.setTitle(u"Результат графологического анализа")
+		self.label = QtGui.QLabel()
+		self.label.setWordWrap(True)
+		verticalLayout = QtGui.QVBoxLayout()
+		verticalLayout.addWidget(self.label)
+		self.setLayout(verticalLayout)
+
 class ZReportDialog(QtGui.QDialog):
 	def __init__(self,parent=None):
 		QtGui.QDialog.__init__(self,parent)
@@ -133,48 +143,46 @@ class ZWizard(QtGui.QWizard):
 		self.linguisticVariableList = []
 		self.readLinguisticVariables()
 		self.setWizardStyle(QtGui.QWizard.ModernStyle)
-		lastPageId = 0
 		for linguisticVariable in self.linguisticVariableList:
-			lastPage = self.addPage(ZWizardPage(linguisticVariable))
-		# self.addPage(ZReportWizardPage())
+			self.addPage(ZWizardPage(linguisticVariable))
+		self.lastPageId = self.addPage(ZReportWizardPage())
 		self.setWindowTitle(u"Графологический анализ")
-		# Важно! Блокируем кнопку выхода из мастера, чтобы не потерять
-		# результаты работы
-		self.setFinishEnabled(lastPageId,False)
+		self.connect(self, QtCore.SIGNAL("currentIdChanged(int)"), self.currentIdChanged)
 		# TODO русификация кнопок
 
-	def accept(self):
-		""" Переопределение функции завершения работы мастера
+	def currentIdChanged(self,pageId):
+		""" Слот, подготавливающий отчёт при переходе
+		на последнюю страницу
+
 		Выполняет анализ характеристик и выводи отчёт
 		"""
-		self.saveDegreesOfMembership()
-		conclusionNames = [	"C-","C+",
-					"9-","9+",
-					"3-","3+",
-					"G-","G+",
-					"M-","M+",
-					"F-","F+"]
-		resultList = [ 		0.0, 0.0, 
-					0.0, 0.0, 
-					0.0, 0.0, 
-					0.0, 0.0, 
-					0.0, 0.0, 
-					0.0, 0.0]
-		ruleList = self.readRules()
-		for rule in ruleList:
-			[value, conclusionList] = rule.calculate(self.linguisticVariableList)
-#			print conclusionList
-			for conclusion in conclusionList:
-				#print conclusion
-				index = conclusionNames.index(conclusion)
-				newValue = resultList[index] + value
-				resultList[index] =  newValue
-		print conclusionNames
-		print resultList
-		reportDialog = ZReportDialog()
-		reportDialog.setModal(True)
-		reportDialog.exec_()
-		QtGui.QDialog.accept(self)
+		print pageId
+		if pageId == self.lastPageId:
+			self.saveDegreesOfMembership()
+			conclusionNames = [	"C-","C+",
+						"9-","9+",
+						"3-","3+",
+						"G-","G+",
+						"M-","M+",
+						"F-","F+"]
+			resultList = [ 		0.0, 0.0, 
+						0.0, 0.0, 
+						0.0, 0.0, 
+						0.0, 0.0, 
+						0.0, 0.0, 
+						0.0, 0.0]
+			ruleList = self.readRules()
+			for rule in ruleList:
+				[value, conclusionList] = rule.calculate(self.linguisticVariableList)
+	#			print conclusionList
+				for conclusion in conclusionList:
+					#print conclusion
+					index = conclusionNames.index(conclusion)
+					newValue = resultList[index] + value
+					resultList[index] =  newValue
+			print conclusionNames
+			print resultList
+			self.page(self.lastPageId).label.setText(str(resultList))
 	
 	def readRules(self):
 		""" Считывает из файла правила вывода
@@ -221,7 +229,7 @@ class ZWizard(QtGui.QWizard):
 		""" Сохраняет степени принадлежности в список класса 
 		self.linguisticVariableList
 		"""
-		for id in self.pageIds():
+		for id in self.pageIds()[:-1]:
 			value = self.page(id).slider.value()
 			modalValues = [term[1] 
 					for term in self.linguisticVariableList[id].terms]
